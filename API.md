@@ -1,4 +1,4 @@
-# cbeta-fetch API（v0.1.0）
+# cbeta-fetch API（v0.1.1）
 
 纯标准库；无宿主依赖。所有函数不打印、不假设目录布局。
 
@@ -48,6 +48,10 @@ canon/no **大小写不敏感**；返回项保留 catalog 原始大小写：
 
 ### `probe(url, *, etag=None, last_modified=None, timeout=20) -> (status, etag, last_modified)`
 HEAD + 条件头，不落盘。`status ∈ {"changed","not-modified","failed"}`。
+
+### `probe_info(url, *, etag=None, last_modified=None, timeout=20) -> dict`
+同 `probe`，但返回详情 dict：`{"status", "etag", "last_modified", "size"}`；
+`size` 为远端 `Content-Length`（int，缺失为 None）。用于「大小一致即跳过」类判断。
 
 ## 同步
 

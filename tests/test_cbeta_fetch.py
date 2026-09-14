@@ -11,7 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from cbeta_fetch import (is_work_id, parse_work_id, canonical_work_id,
                          catalog_lookup, DEFAULT_DOWNLOADS, REMOTE_URLS,
-                         ALL_FORMATS, download, unzip_flat, fetch_if_changed)
+                         ALL_FORMATS, download, unzip_flat, fetch_if_changed,
+                         probe, probe_info)
 import cbeta_fetch
 
 
@@ -141,6 +142,27 @@ class TestDownload(unittest.TestCase):
         status, _etag, _lm = fetch_if_changed(Path(src).as_uri(), dest)
         self.assertEqual(status, "downloaded")
         self.assertTrue(os.path.isfile(dest))
+
+
+class TestProbeInfo(unittest.TestCase):
+    def setUp(self):
+        self.d = _tmp_dir()
+        self.src = os.path.join(self.d, "a.txt")
+        with io.open(self.src, "w", encoding="utf-8") as f:
+            f.write("hello 佛")
+        self.uri = Path(self.src).as_uri()
+
+    def test_probe_info_returns_size(self):
+        r = probe_info(self.uri)
+        self.assertEqual(r["status"], "changed")
+        self.assertEqual(r["size"], os.path.getsize(self.src))
+        # 三元组 probe 向后兼容
+        self.assertEqual(probe(self.uri)[0], "changed")
+
+    def test_probe_info_failed(self):
+        r = probe_info("not-a-url")
+        self.assertEqual(r["status"], "failed")
+        self.assertIsNone(r["size"])
 
 
 if __name__ == "__main__":

@@ -1,5 +1,8 @@
 # CHANGELOG
 
+## 0.1.2
+- `REMOTE_URLS` 新增 `vol_json`（`scope-selector/vol.json`：刊本→册→经）。
+
 ## 0.1.1
 - 新增 `probe_info(url, ...) -> dict`（HEAD + 条件头，返回
   `{status, etag, last_modified, size}`；`size` 取 `Content-Length`）。

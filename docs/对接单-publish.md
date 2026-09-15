@@ -1,5 +1,13 @@
 # publish（`cbeta_publish`）对接单 —— 复用 `cbeta-fetch`
 
+> **状态：已实施（2026-09-14 核对）**。publish 侧已完成本单全部要点：具名包
+> `cbeta_publish`、`cbeta_publish/_vendor/{cbeta_fetch.py,SOURCE.txt,__init__.py}`
+> （v0.1.1、`commit=50de57e…`、`sha256=04b322d6…`）、`official_ebook_source.py`
+> 用 `cf.DEFAULT_DOWNLOADS`+`cf.probe_info`（size/存在性）、`remote_manager.py`/
+> `remote_sources.py`（URL 单源 `cf.REMOTE_URLS`）/`catalog/work_id.py`
+> （`cf.canonical_work_id`）均走 `_vendor`、`requirements.txt` 已去 `requests`、
+> `tests/test_vendor_sync.py` 已守 `sha256`+`probe_info`。本单保留作档案与后续同步说明。
+
 > 目标：把 publish 的「官方电子书下载 + 元数据更新」改为复用共享层 `cbeta-fetch`
 > （纯标准库、URL 单源、大小写规范化、zip 解压、条件更新），并**保留 publish 自己的
 > 目录布局与业务**。本单供 publish 会话逐条实施；xml2pdf 侧已完成同款改造。

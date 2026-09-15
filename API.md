@@ -1,4 +1,4 @@
-# cbeta-fetch API（v0.1.1）
+# cbeta-fetch API（v0.1.2）
 
 纯标准库；无宿主依赖。所有函数不打印、不假设目录布局。
 
@@ -30,7 +30,7 @@ canon/no **大小写不敏感**；返回项保留 catalog 原始大小写：
   - `html|txt_notes`：`{id}`；`docx|epub|odt|pdf`：`{canon}/{id}`
 - `REMOTE_URLS`：元数据/字库更新源（**单源**，宿主 source 表只引用 key）
   `sutra_mapping, bulei, sutralist_json, sutralist_txt, category_json,
-   dynasty_works, creators_by_strokes, all_creators, gaiji, sanskrit, supplement_ttf`
+   dynasty_works, vol_json, creators_by_strokes, all_creators, gaiji, sanskrit, supplement_ttf`
 - `ALL_FORMATS = ("xml","html","docx","epub","txt_notes","odt")`
 
 ## HTTP

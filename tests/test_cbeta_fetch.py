@@ -84,7 +84,7 @@ class TestUrls(unittest.TestCase):
 
     def test_remote_urls_keys(self):
         for k in ("sutra_mapping", "bulei", "sutralist_json", "category_json",
-                  "dynasty_works", "creators_by_strokes", "all_creators",
+                  "dynasty_works", "vol_json", "creators_by_strokes", "all_creators",
                   "gaiji", "sanskrit", "supplement_ttf"):
             self.assertTrue(REMOTE_URLS.get(k, "").startswith("http"), k)
         self.assertIn("pdf", DEFAULT_DOWNLOADS)

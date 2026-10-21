@@ -15,10 +15,13 @@ CBETA 官方资源**下载共享层**（纯标准库，无第三方依赖）。�
 | catalog 查表 | `catalog_lookup`（大小写不敏感、返回原始大小写） |
 | 官方文件 URL | `DEFAULT_DOWNLOADS`（xml/html/docx/epub/odt/txt_notes/pdf） |
 | 元数据 URL（单源） | `REMOTE_URLS` |
-| 下载（原子/可解压） | `download(url, dest, unzip=False)` |
+| 下载（默认校验/分块/可解压） | `download(url, dest, unzip=False)` |
 | 平展解压 | `unzip_flat(zip_path, dest_dir)` |
 | 条件更新 | `fetch_if_changed(url, dest, etag=..., last_modified=...)` |
-| 更新探针 | `probe(url, etag=..., last_modified=...)` |
+| 更新探针 | `probe(url, ...)` / `probe_info(url, ...)` / `probe_status(url)` |
+
+TLS：默认校验证书；cbdata 只清 `VERIFY_X509_STRICT` 附加位（证书链与主机名仍校验，
+因该主机证书缺 Subject Key Identifier），其它主机严格。不使用 unverified 上下文。
 
 ## 不做什么（留在宿主项目）
 

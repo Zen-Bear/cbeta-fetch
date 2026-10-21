@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cbeta-fetch"
-version = "0.1.0"
+version = "0.2.0"
 description = "CBETA 官方资源下载共享层（纯标准库）：URL 模板 / work id 大小写 / catalog / 下载与条件更新"
 readme = "README.md"
 requires-python = ">=3.8"

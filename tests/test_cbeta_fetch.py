@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import io
 import os
+import ssl
 import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -106,7 +108,7 @@ class TestDownload(unittest.TestCase):
         with io.open(dest, encoding="utf-8") as f:
             self.assertEqual(f.read(), "hello 佛")
         self.assertFalse([p for p in os.listdir(os.path.dirname(dest))
-                          if p.endswith(".part" + str(os.getpid()))])
+                          if ".part" in p])
 
     def test_download_unzip(self):
         d = _tmp_dir()
@@ -142,6 +144,113 @@ class TestDownload(unittest.TestCase):
         status, _etag, _lm = fetch_if_changed(Path(src).as_uri(), dest)
         self.assertEqual(status, "downloaded")
         self.assertTrue(os.path.isfile(dest))
+
+    def test_download_streams_in_chunks(self):
+        class _Resp:
+            headers = {}
+
+            def __init__(self, data):
+                self._data = data
+                self.calls = []
+
+            def read(self, n=-1):
+                self.calls.append(n)
+                if not self._data:
+                    return b""
+                out = self._data[:n]
+                self._data = self._data[n:]
+                return out
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        d = _tmp_dir()
+        data = b"x" * (cbeta_fetch.CHUNK + 10)
+        resp = _Resp(data)
+        resp.headers = {"Content-Length": str(len(data))}
+        with mock.patch.object(cbeta_fetch, "_open", return_value=resp):
+            self.assertTrue(download("http://example.test/x",
+                                     os.path.join(d, "out.bin")))
+        self.assertTrue(all(n == cbeta_fetch.CHUNK for n in resp.calls),
+                        resp.calls)
+        self.assertFalse([p for p in os.listdir(d) if ".part" in p])
+
+    def test_download_rejects_short_body(self):
+        class _Resp:
+            headers = {"Content-Length": "100"}
+
+            def __init__(self):
+                self._done = False
+
+            def read(self, n=-1):
+                if self._done:
+                    return b""
+                self._done = True
+                return b"x" * 10
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        d = _tmp_dir()
+        dest = os.path.join(d, "out.bin")
+        with mock.patch.object(cbeta_fetch, "_open", return_value=_Resp()):
+            self.assertFalse(download("http://example.test/x", dest,
+                                      retries=0))
+        self.assertFalse(os.path.exists(dest))
+        self.assertFalse([p for p in os.listdir(d) if ".part" in p])
+
+    def test_part_names_are_unique(self):
+        self.assertNotEqual(cbeta_fetch._part_path("x"),
+                            cbeta_fetch._part_path("x"))
+
+    def test_download_duplicate_zip_last_wins(self):
+        # 同名策略延后第二批；本批保持旧行为（后者覆盖）
+        d = _tmp_dir()
+        z = os.path.join(d, "dup.zip")
+        with zipfile.ZipFile(z, "w") as zf:
+            zf.writestr("a/x.txt", b"1")
+            zf.writestr("b/x.txt", b"2")
+        out = os.path.join(d, "out")
+        self.assertTrue(download(Path(z).as_uri(), out, unzip=True,
+                                 retries=0))
+        self.assertEqual(Path(out, "x.txt").read_bytes(), b"2")
+        self.assertFalse([p for p in os.listdir(d) if ".part" in p])
+
+
+class TestTls(unittest.TestCase):
+    @unittest.skipUnless(getattr(ssl, "VERIFY_X509_STRICT", 0),
+                         "Python 3.13+ 才有 VERIFY_X509_STRICT")
+    def test_cbdata_relaxes_strict_only(self):
+        ctx = cbeta_fetch._context_for("https://cbdata.dila.edu.tw/x")
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(ctx.check_hostname)
+        self.assertFalse(ctx.verify_flags & ssl.VERIFY_X509_STRICT)
+
+    @unittest.skipUnless(getattr(ssl, "VERIFY_X509_STRICT", 0),
+                         "Python 3.13+ 才有 VERIFY_X509_STRICT")
+    def test_github_keeps_strict(self):
+        ctx = cbeta_fetch._context_for("https://raw.githubusercontent.com/x")
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(ctx.check_hostname)
+        self.assertTrue(ctx.verify_flags & ssl.VERIFY_X509_STRICT)
+
+    def test_ctx_is_verified(self):
+        ctx = cbeta_fetch._ctx()
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(ctx.check_hostname)
+
+    def test_probe_status(self):
+        d = _tmp_dir()
+        src = os.path.join(d, "a.txt")
+        Path(src).write_text("x", encoding="utf-8")
+        self.assertEqual(cbeta_fetch.probe_status(Path(src).as_uri()), 200)
+        self.assertIsNone(cbeta_fetch.probe_status("not-a-url"))
 
 
 class TestProbeInfo(unittest.TestCase):

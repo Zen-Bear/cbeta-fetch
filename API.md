@@ -1,6 +1,6 @@
-# cbeta-fetch API（v0.1.2）
+# cbeta-fetch API（v0.2.0）
 
-纯标准库；无宿主依赖。所有函数不打印、不假设目录布局。
+纯标准库；无宿主依赖。所有函数不打印、不假设目录布局（TLS 降级用 `warnings.warn`）。
 
 ## work id
 
@@ -36,12 +36,19 @@ canon/no **大小写不敏感**；返回项保留 catalog 原始大小写：
 ## HTTP
 
 ### `download(url, dest, *, timeout=90, retries=2, unzip=False, headers=None) -> bool`
-- `unzip=False`：`dest` 为文件，父目录自建，写入为 `.part` → `os.replace` **原子替换**。
-- `unzip=True`：`dest` 为目录，下载 zip 后平展解压（zip 不留）。
-- 使用 **unverified SSL**（cbdata 证书缺 SKI）+ 重试；失败返回 `False`。
+- `unzip=False`：`dest` 为文件，父目录自建；1 MiB 分块写 `.part`（名带 pid + 随机后缀）
+  → `os.replace` **原子替换**；失败清理。
+- `unzip=True`：`dest` 为目录，下载 zip 到临时文件后平展解压（zip 不留）；
+  解压到临时目录、成功后逐个替换；同名 basename 整单失败。
+- TLS：按主机预选上下文；cbdata 只清 `VERIFY_X509_STRICT` 附加位
+  （`CERT_REQUIRED` + `check_hostname` 保持开启），其它主机严格；
+  不使用 `ssl._create_unverified_context()`。
+- 响应带 `Content-Length` 时校验实际写入字节数；短读失败、重试。
+- 失败返回 `False`（重试 `retries` 次）。
 
 ### `unzip_flat(zip_path, dest_dir) -> None`
-忽略 zip 内目录层次，按 basename 平展解压（防 zip-slip）。
+忽略 zip 内目录层次，按 basename 平展解压（防 zip-slip）；同名条目保持旧行为
+（后者覆盖）。解压原子性与同名策略延后第二批。
 
 ### `fetch_if_changed(url, dest, *, etag=None, last_modified=None, timeout=90, retries=1) -> (status, etag, last_modified)`
 条件 GET → `dest`（原子）。`status ∈ {"downloaded","not-modified","failed"}`。
@@ -52,6 +59,16 @@ HEAD + 条件头，不落盘。`status ∈ {"changed","not-modified","failed"}`�
 ### `probe_info(url, *, etag=None, last_modified=None, timeout=20) -> dict`
 同 `probe`，但返回详情 dict：`{"status", "etag", "last_modified", "size"}`；
 `size` 为远端 `Content-Length`（int，缺失为 None）。用于「大小一致即跳过」类判断。
+
+### `probe_status(url, *, timeout=20) -> int | None`
+HEAD 返回 HTTP 状态码（如 200/404/410）；网络/证书/异常返回 `None`。
+与 `probe_info` 共用同一套 TLS 回退，供宿主做「404/410 确定不存在」快判。
+
+### TLS 常量
+- `CB_DATA_HOSTS = {"cbdata.dila.edu.tw"}`：唯一允许清 `VERIFY_X509_STRICT` 的主机；
+  证书链与主机名仍校验。
+- `CHUNK = 1024 * 1024`：下载/解压分块大小。
+- `_ctx()` 仅保留兼容，返回默认校验上下文；新代码请用上述函数。
 
 ## 同步
 

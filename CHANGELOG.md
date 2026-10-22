@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.2.1
+- `unzip_flat` 解压原子化：先解到同卷临时目录，全部成功后再逐个 `os.replace`
+  进目标目录；坏包/中途失败不再留下半成品（已存在文件不被改动）。
+- 同名策略定案：同名 basename（Windows 下不分大小写）与 `.`/`..` 条目**整单失败**
+  （`zipfile.BadZipFile`），不再“后者覆盖”。
+- 目标目录中已有、zip 未包含的文件保留（供 xml2pdf 等多作品共享同一格式目录）。
+
 ## 0.2.0
 - TLS：所有主机默认校验证书；cbdata 只清 `VERIFY_X509_STRICT` 这一个附加检查位
   （`verify_mode=CERT_REQUIRED`、`check_hostname=True` 保持开启），

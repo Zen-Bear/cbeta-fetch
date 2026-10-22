@@ -1,4 +1,4 @@
-# cbeta-fetch API（v0.2.0）
+# cbeta-fetch API（v0.2.1）
 
 纯标准库；无宿主依赖。所有函数不打印、不假设目录布局（TLS 降级用 `warnings.warn`）。
 
@@ -47,8 +47,9 @@ canon/no **大小写不敏感**；返回项保留 catalog 原始大小写：
 - 失败返回 `False`（重试 `retries` 次）。
 
 ### `unzip_flat(zip_path, dest_dir) -> None`
-忽略 zip 内目录层次，按 basename 平展解压（防 zip-slip）；同名条目保持旧行为
-（后者覆盖）。解压原子性与同名策略延后第二批。
+忽略 zip 内目录层次，按 basename 平展解压（防 zip-slip）。先解到同卷临时目录，
+全部成功后逐个 `os.replace`；坏包、同名 basename（Windows 下不分大小写）、
+`.`/`..` 条目整单失败，不留下半成品。`dest_dir` 中已有、zip 未包含的文件保留。
 
 ### `fetch_if_changed(url, dest, *, etag=None, last_modified=None, timeout=90, retries=1) -> (status, etag, last_modified)`
 条件 GET → `dest`（原子）。`status ∈ {"downloaded","not-modified","failed"}`。

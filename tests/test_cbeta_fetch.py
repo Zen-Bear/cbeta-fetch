@@ -209,18 +209,79 @@ class TestDownload(unittest.TestCase):
         self.assertNotEqual(cbeta_fetch._part_path("x"),
                             cbeta_fetch._part_path("x"))
 
-    def test_download_duplicate_zip_last_wins(self):
-        # 同名策略延后第二批；本批保持旧行为（后者覆盖）
+    def test_download_duplicate_zip_fails_atomic(self):
+        # 同名 basename 整单失败：目标目录保持原样，不留下半成品
         d = _tmp_dir()
         z = os.path.join(d, "dup.zip")
         with zipfile.ZipFile(z, "w") as zf:
             zf.writestr("a/x.txt", b"1")
             zf.writestr("b/x.txt", b"2")
         out = os.path.join(d, "out")
-        self.assertTrue(download(Path(z).as_uri(), out, unzip=True,
-                                 retries=0))
-        self.assertEqual(Path(out, "x.txt").read_bytes(), b"2")
-        self.assertFalse([p for p in os.listdir(d) if ".part" in p])
+        os.makedirs(out)
+        Path(out, "keep.txt").write_bytes(b"old")
+        self.assertFalse(download(Path(z).as_uri(), out, unzip=True,
+                                  retries=0))
+        self.assertEqual(Path(out, "keep.txt").read_bytes(), b"old")
+        self.assertEqual(sorted(os.listdir(out)), ["keep.txt"])
+        self.assertFalse([p for p in os.listdir(d)
+                          if ".part" in p or ".unzip" in p])
+
+    def test_unzip_flat_replaces_and_keeps_others(self):
+        d = _tmp_dir()
+        z = os.path.join(d, "z.zip")
+        with zipfile.ZipFile(z, "w") as zf:
+            zf.writestr("nested/x.txt", b"new")
+        out = os.path.join(d, "o")
+        os.makedirs(out)
+        Path(out, "x.txt").write_bytes(b"old")
+        Path(out, "other.txt").write_bytes(b"stay")
+        unzip_flat(z, out)
+        self.assertEqual(Path(out, "x.txt").read_bytes(), b"new")
+        self.assertEqual(Path(out, "other.txt").read_bytes(), b"stay")
+
+    def test_unzip_flat_bad_zip_leaves_dest_untouched(self):
+        d = _tmp_dir()
+        z = os.path.join(d, "bad.zip")
+        Path(z).write_bytes(b"not a zip")
+        out = os.path.join(d, "o")
+        os.makedirs(out)
+        Path(out, "keep.txt").write_bytes(b"old")
+        with self.assertRaises(zipfile.BadZipFile):
+            unzip_flat(z, out)
+        self.assertEqual(Path(out, "keep.txt").read_bytes(), b"old")
+        self.assertFalse([p for p in os.listdir(d)
+                          if ".part" in p or ".unzip" in p])
+
+    def test_unzip_flat_dest_is_file_fails_cleanly(self):
+        d = _tmp_dir()
+        z = os.path.join(d, "z.zip")
+        with zipfile.ZipFile(z, "w") as zf:
+            zf.writestr("a.txt", b"x")
+        target = os.path.join(d, "file")
+        Path(target).write_bytes(b"old")
+        with self.assertRaises(OSError):
+            unzip_flat(z, target)
+        self.assertEqual(Path(target).read_bytes(), b"old")
+        self.assertFalse([p for p in os.listdir(d)
+                          if ".part" in p or ".unzip" in p])
+
+    def test_unzip_flat_rejects_dotdot(self):
+        d = _tmp_dir()
+        z = os.path.join(d, "dotdot.zip")
+        with zipfile.ZipFile(z, "w") as zf:
+            zf.writestr("..", b"x")
+        with self.assertRaises(zipfile.BadZipFile):
+            unzip_flat(z, os.path.join(d, "o"))
+
+    @unittest.skipUnless(os.name == "nt", "Windows 文件系统不分大小写")
+    def test_unzip_flat_duplicate_case_insensitive(self):
+        d = _tmp_dir()
+        z = os.path.join(d, "dupcase.zip")
+        with zipfile.ZipFile(z, "w") as zf:
+            zf.writestr("a/X.txt", b"1")
+            zf.writestr("b/x.txt", b"2")
+        with self.assertRaises(zipfile.BadZipFile):
+            unzip_flat(z, os.path.join(d, "o"))
 
 
 class TestTls(unittest.TestCase):

@@ -15,7 +15,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODULE = os.path.join(os.path.dirname(HERE), "cbeta_fetch.py")
-REPO = "https://github.com/cbeta-org/cbeta-fetch"  # 占位，可改
+REPO = "https://github.com/Zen-Bear/cbeta-fetch"
 
 
 def sha256(path):
